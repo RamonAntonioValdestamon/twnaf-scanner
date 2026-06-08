@@ -802,14 +802,14 @@ async function loadParticipants() {
 }
 
 // ── SCAN QR ───────────────────────────────────────────────────
+// ── UPDATED FRONTEND SCAN PROCESSING LOGIC ──
 function onQRScanned(raw) {
   if (cooldown) return;
   cooldown = true;
   setTimeout(() => cooldown = false, 1800);
 
-  const parts = raw.split('|');
-  const id    = parts.length >= 2 ? parts[1].trim() : raw.trim();
-  processCheckIn(id);
+  // Directly pass the raw string; our matching system will parse it cleanly
+  processCheckIn(raw);
 }
 
 function doManual() {
@@ -823,33 +823,32 @@ function doManual() {
 async function processCheckIn(query) {
   setLoading('Checking in…');
 
-  // 1. Clean the input query (Handle full raw strings or just the extracted ID)
-  let cleanQuery = query.trim();
-  if (cleanQuery.includes('|')) {
-    const parts = cleanQuery.split('|');
-    cleanQuery = parts.length >= 2 ? parts[1].trim() : cleanQuery;
+  // 1. Clean the input string: If it contains pipes (|), pull out just the ID segment
+  let extractedTarget = query.trim();
+  if (extractedTarget.includes('|')) {
+    const parts = extractedTarget.split('|');
+    extractedTarget = parts.length >= 2 ? parts[1].trim() : extractedTarget;
   }
   
-  const q = cleanQuery.toUpperCase();
-  Logger = console; // for debugging in browser console
+  const q = extractedTarget.toUpperCase();
 
-  // 2. Find participant locally with high-tolerance matching
+  // 2. Scan your memory array with high case tolerance
   let p = participants.find(x => {
-    const sheetId = (x.id || '').toString().toUpperCase().trim();
+    const sheetId   = (x.id || '').toString().toUpperCase().trim();
     const sheetName = (x.name || '').toString().toUpperCase().trim();
     return sheetId === q || sheetId.includes(q) || sheetName.includes(q);
   });
 
   if (!p) {
     hideLoading();
-    showResult('err', '✕', 'Not Found', cleanQuery, 'This QR code is not in the system');
-    addLog('err', cleanQuery, 'Not found');
+    showResult('err', '✕', 'Not Found', extractedTarget, 'This ID is not in the system registry');
+    addLog('err', extractedTarget, 'Not found');
     return;
   }
 
   const dayKey = 'day' + currentDay;
 
-  // 3. Already checked in (local check)
+  // 3. Prevent duplicate check-in responses
   if (p[dayKey] === 'Present') {
     hideLoading();
     showResult('warn', '!', p.name, p.id, 'Already checked in for Day ' + currentDay);
@@ -857,9 +856,9 @@ async function processCheckIn(query) {
     return;
   }
 
-  // 4. Write directly back to the Google Sheet via Web App URL
   let writeOk = true;
 
+  // 4. Fire the record back to the sheet
   if (!OFFLINE_MODE && webAppOnline) {
     const res = await apiPost({
       action:        'checkin',
@@ -877,16 +876,15 @@ async function processCheckIn(query) {
         return;
       }
       writeOk = false;
-      console.warn('Web App write failed, marking locally only.', res);
     }
   }
 
-  // 5. Update local screen state on success
+  // 5. Success UI state rendering
   p[dayKey] = 'Present';
   updateStats();
   hideLoading();
 
-  const suffix = writeOk ? '' : ' (offline — sheet not updated)';
+  const suffix = writeOk ? '' : ' (offline — sync pending)';
   showResult('ok', '✓', p.name, p.id, 'Checked in — Day ' + currentDay + suffix);
   addLog('ok', p.name, 'Day ' + currentDay + (writeOk ? '' : ' (offline)'));
 }
