@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TWNAF Check-In</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TWNAF Check-In">
+<style>
+/* ── PASTE YOUR WEB APP URL BELOW (from Script 2 deployment) ── */
+/* See WEBAPP_URL variable in the script section at the bottom   */
+
+:root {
+  --navy:        #0e1f38;
+  --navy-mid:    #162d50;
+  --navy-light:  #1e3d6b;
+  --gold:        #c9922a;
+  --gold-lt:     #e6b352;
+  --gold-pale:   #f5e4c0;
+  --cream:       #faf7f2;
+  --white:       #ffffff;
+  --ok:          #1a7a4a;
+  --ok-bg:       rgba(26,122,74,0.12);
+  --warn:        #c9922a;
+  --warn-bg:     rgba(201,146,42,0.12);
+  --err:         #9b2020;
+  --err-bg:      rgba(155,32,32,0.12);
+  --text-dim:    rgba(255,255,255,0.45);
+  --border:      rgba(201,146,42,0.2);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--navy);
+  color: var(--white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── SCREENS ─────────────────────────────────────────────── */
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ── PIN LOGIN SCREEN ────────────────────────────────────── */
+#screen-login {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(160deg, #0a1628 0%, #0e1f38 50%, #162d50 100%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 32px;
+  backdrop-filter: blur(12px);
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.login-logo h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold-lt);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+.login-logo p {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.pin-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+  display: block;
+}
+
+.pin-display {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(201,146,42,0.4);
+  background: transparent;
+  transition: all 0.15s;
+}
+.pin-dot.filled {
+  background: var(--gold);
+  border-color: var(--gold);
+  transform: scale(1.1);
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.key-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--white);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.12s;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.key-btn:active, .key-btn.pressed {
+  background: rgba(201,146,42,0.2);
+  border-color: var(--gold);
+  color: var(--gold-lt);
+  transform: scale(0.94);
+}
+.key-btn.del { font-size: 18px; color: var(--text-dim); }
+.key-btn.enter {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.key-btn.enter:active { background: var(--gold-lt); }
+
+.login-error {
+  text-align: center;
+  font-size: 13px;
+  color: #e88;
+  min-height: 20px;
+  margin-top: 4px;
+  transition: opacity 0.3s;
+}
+
+/* ── MAIN SCANNER SCREEN ─────────────────────────────────── */
+#screen-main { background: var(--navy); }
+
+/* Header */
+header {
+  background: var(--navy-mid);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.header-info h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gold-lt);
+}
+.header-info .scanner-id {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.day-toggle {
+  display: flex;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.day-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.04em;
+}
+.day-btn.active {
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px;
+  gap: 14px;
+}
+
+/* Stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.stat-card {
+  background: var(--navy-mid);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+}
+.stat-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--gold-lt);
+  line-height: 1;
+}
+.stat-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* Result card */
+.result-card {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--navy-mid);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 86px;
+  transition: all 0.25s;
+}
+.result-card.ok   { border-color: rgba(26,122,74,0.5);  background: var(--ok-bg); }
+.result-card.warn { border-color: rgba(201,146,42,0.5); background: var(--warn-bg); }
+.result-card.err  { border-color: rgba(155,32,32,0.5);  background: var(--err-bg); }
+
+.result-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.result-icon.ok   { background: rgba(26,122,74,0.25); }
+.result-icon.warn { background: rgba(201,146,42,0.2); }
+.result-icon.err  { background: rgba(155,32,32,0.2); }
+
+.result-text .result-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.2;
+}
+.result-text .result-msg {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.result-text .result-msg.ok   { color: #5dcea0; }
+.result-text .result-msg.warn { color: var(--gold-lt); }
+.result-text .result-msg.err  { color: #e88; }
+
+.result-placeholder {
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.06em;
+}
+
+/* Scanner box */
+.scanner-section { display: flex; flex-direction: column; gap: 10px; }
+
+.section-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+#scanner-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--navy-mid);
+  position: relative;
+  aspect-ratio: 1;
+  max-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#reader { width: 100%; height: 100%; }
+
+.scan-frame-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.scan-corners {
+  width: 52%;
+  height: 52%;
+  position: relative;
+}
+.scan-corners::before, .scan-corners::after,
+.scan-corners span::before, .scan-corners span::after {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  border-color: var(--gold-lt);
+  border-style: solid;
+}
+.scan-corners::before  { top:0;    left:0;  border-width: 2px 0 0 2px; }
+.scan-corners::after   { top:0;    right:0; border-width: 2px 2px 0 0; }
+.scan-corners span::before { bottom:0; left:0;  border-width: 0 0 2px 2px; }
+.scan-corners span::after  { bottom:0; right:0; border-width: 0 2px 2px 0; }
+.scan-line {
+  position: absolute;
+  left: 3px; right: 3px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  animation: scanline 2s ease-in-out infinite;
+}
+@keyframes scanline {
+  0%   { top: 3px;   opacity: 1; }
+  90%  { top: calc(100% - 5px); opacity: 1; }
+  100% { top: calc(100% - 5px); opacity: 0; }
+}
+
+.scan-idle-msg {
+  position: absolute;
+  bottom: 16px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.scan-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+  letter-spacing: 0.04em;
+}
+.scan-btn.start { background: var(--gold);  color: var(--navy); }
+.scan-btn.start:active { background: var(--gold-lt); }
+.scan-btn.stop  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.12); }
+
+/* Manual input */
+.manual-row { display: flex; gap: 8px; }
+.manual-input {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 12px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(201,146,42,0.25);
+  background: var(--navy-mid);
+  color: var(--white);
+  outline: none;
+}
+.manual-input::placeholder { color: rgba(255,255,255,0.25); }
+.manual-input:focus { border-color: var(--gold); }
+.manual-go {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 12px 18px;
+  border-radius: 9px;
+  border: 1px solid rgba(201,146,42,0.35);
+  background: transparent;
+  color: var(--gold-lt);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.manual-go:active { background: rgba(201,146,42,0.12); }
+
+/* Log */
+.log-wrap {
+  background: var(--navy-mid);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.log-wrap::-webkit-scrollbar { width: 3px; }
+.log-wrap::-webkit-scrollbar-thumb { background: rgba(201,146,42,0.3); border-radius: 2px; }
+
+.log-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 12px;
+  animation: fadein 0.25s ease;
+}
+@keyframes fadein { from { opacity:0; transform:translateY(-4px); } to { opacity:1; } }
+.log-item:last-child { border-bottom: none; }
+.log-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.log-dot.ok   { background: #5dcea0; }
+.log-dot.warn { background: var(--gold); }
+.log-dot.err  { background: #e88; }
+.log-name { flex: 1; color: rgba(255,255,255,0.75); }
+.log-meta { font-size: 10px; color: rgba(255,255,255,0.3); white-space: nowrap; }
+.log-empty { padding: 20px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.18); letter-spacing: 0.06em; }
+
+/* Connection status dot */
+.conn-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; margin-right: 5px;
+  background: #888;
+  transition: background 0.3s;
+}
+.conn-dot.online  { background: #5dcea0; }
+.conn-dot.offline { background: #e88; }
+
+/* Loading overlay */
+.loading-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,22,40,0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  gap: 16px;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(201,146,42,0.2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--text-dim); letter-spacing: 0.08em; }
+
+/* Logout btn */
+.logout-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:active { color: #e88; border-color: #e88; }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Connecting…</div>
+</div>
+
+<!-- ── SCREEN 1: PIN LOGIN ──────────────────────────────────── -->
+<div class="screen active" id="screen-login">
+  <div class="login-card">
+    <div class="login-logo">
+      <h1>The World Needs A Father</h1>
+      <p>Event Check-In — Committee Access</p>
+    </div>
+
+    <span class="pin-label">Enter your scanner PIN</span>
+    <div class="pin-display" id="pin-display">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+
+    <div class="pin-keypad">
+      <button class="key-btn" onclick="keyPress('1')">1</button>
+      <button class="key-btn" onclick="keyPress('2')">2</button>
+      <button class="key-btn" onclick="keyPress('3')">3</button>
+      <button class="key-btn" onclick="keyPress('4')">4</button>
+      <button class="key-btn" onclick="keyPress('5')">5</button>
+      <button class="key-btn" onclick="keyPress('6')">6</button>
+      <button class="key-btn" onclick="keyPress('7')">7</button>
+      <button class="key-btn" onclick="keyPress('8')">8</button>
+      <button class="key-btn" onclick="keyPress('9')">9</button>
+      <button class="key-btn del" onclick="keyDel()">⌫</button>
+      <button class="key-btn" onclick="keyPress('0')">0</button>
+      <button class="key-btn enter" onclick="submitPin()">Enter</button>
+    </div>
+
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── SCREEN 2: MAIN SCANNER ──────────────────────────────── -->
+<div class="screen" id="screen-main">
+  <header>
+    <div class="header-info">
+      <h2>TWNAF Check-In</h2>
+      <div class="scanner-id" id="scanner-id-label">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span id="conn-label">Connecting…</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="day-toggle">
+        <button class="day-btn active" id="btn-d1" onclick="setDay(1)">Day 1</button>
+        <button class="day-btn"        id="btn-d2" onclick="setDay(2)">Day 2</button>
+      </div>
+      <button class="logout-btn" onclick="logout()">Exit</button>
+    </div>
+  </header>
+
+  <div class="main-content">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-total">—</div>
+        <div class="stat-label">Registered</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-in">0</div>
+        <div class="stat-label">Checked In</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-pct">—</div>
+        <div class="stat-label">Attendance</div>
+      </div>
+    </div>
+
+    <!-- Result card -->
+    <div class="result-card" id="result-card">
+      <div class="result-placeholder">Point camera at QR code or search below</div>
+    </div>
+
+    <!-- Scanner -->
+    <div class="scanner-section">
+      <div class="section-label">Camera Scanner</div>
+      <div id="scanner-wrap">
+        <div id="reader"></div>
+        <div class="scan-frame-overlay">
+          <div class="scan-corners"><span></span><div class="scan-line"></div></div>
+        </div>
+        <div class="scan-idle-msg" id="idle-msg">Tap Start Camera to begin</div>
+      </div>
+      <button class="scan-btn start" id="scan-btn" onclick="toggleScanner()">Start Camera</button>
+    </div>
+
+    <!-- Manual lookup -->
+    <div>
+      <div class="section-label" style="margin-bottom:8px">Manual Check-In</div>
+      <div class="manual-row">
+        <input class="manual-input" id="manual-input" placeholder="ID or Name (e.g. TWNAF-JDS-0001)"
+               onkeydown="if(event.key==='Enter')doManual()">
+        <button class="manual-go" onclick="doManual()">Check In</button>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div>
+      <div class="section-label" style="margin-bottom:8px">Recent Check-Ins — <span id="day-log-label">Day 1</span></div>
+      <div class="log-wrap" id="log-wrap">
+        <div class="log-empty">No check-ins yet</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── CONFIGURATION ─────────────────────────────────────────────
+// IMPORTANT: Replace this URL with your Script 2 Web App URL
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyuTdawEVl5s-Q9Tv7USA4mJ9V9H7p6jHDsdS0VIeKiyHpLzq8N8VbQkyamhYWlZ_jY/exec';
+
+// Offline fallback (used when WEBAPP_URL is not set or unreachable)
+// Set to true during testing without the Web App set up yet
+const OFFLINE_MODE = false;
+
+// ── STATE ─────────────────────────────────────────────────────
+let currentDay     = 1;
+let scannerName    = '';
+let scannerPin     = '';
+let participants   = [];
+let log            = [];
+let scanning       = false;
+let html5QrCode    = null;
+let cooldown       = false;  // prevents duplicate rapid scans
+let webAppOnline   = false;
+
+const DEMO_PARTICIPANTS = [
+  { id: 'TWNAF-JDS-0001', name: 'Juan dela Santos',   day1: 'Not yet', day2: 'Not yet' },
+  { id: 'TWNAF-MRC-0002', name: 'Maria Reyes Cruz',   day1: 'Present', day2: 'Not yet' },
+  { id: 'TWNAF-APG-0003', name: 'Antonio P. Garcia',  day1: 'Not yet', day2: 'Not yet' },
+  { id: 'TWNAF-LMF-0004', name: 'Liza Marie Flores',  day1: 'Present', day2: 'Present' },
+  { id: 'TWNAF-RBT-0005', name: 'Roberto Bautista',   day1: 'Not yet', day2: 'Not yet' },
+];
+
+// ── INIT ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (OFFLINE_MODE) {
+    hideLoading();
+  } else {
+    setLoading('Connecting to event server…');
+    pingWebApp().then(online => {
+      webAppOnline = online;
+      updateConnStatus();
+      hideLoading();
+    });
+  }
+});
+
+// ── PIN KEYPAD ────────────────────────────────────────────────
+let pinBuffer = '';
+
+function keyPress(num) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += num;
+  updatePinDots();
+  animateKey(num);
+  if (pinBuffer.length === 4) setTimeout(submitPin, 160);
+}
+
+function keyDel() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('dot-' + i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function animateKey(num) {
+  document.querySelectorAll('.key-btn').forEach(b => {
+    if (b.textContent === num) {
+      b.classList.add('pressed');
+      setTimeout(() => b.classList.remove('pressed'), 100);
+    }
+  });
+}
+
+async function submitPin() {
+  if (pinBuffer.length < 4) {
+    showLoginError('Please enter your 4-digit PIN.');
+    return;
+  }
+
+  const pin = pinBuffer;
+  pinBuffer  = '';
+  updatePinDots();
+  setLoading('Verifying PIN…');
+
+  let result;
+
+  if (OFFLINE_MODE) {
+    // Offline: use a local PIN list for testing
+    const LOCAL_PINS = {
+      '1234': 'Demo Scanner (Gate-1)',
+      '0000': 'Admin (Gate-10)',
+    };
+    const name = LOCAL_PINS[pin];
+    result = name
+      ? { success: true, scannerName: name }
+      : { success: false, message: 'Invalid PIN. Access denied.' };
+  } else {
+    result = await apiPost({ action: 'verify_pin', pin });
+  }
+
+  hideLoading();
+
+  if (result && result.success) {
+    scannerName = result.scannerName;
+    scannerPin  = pin;
+    showLoginError('');
+    loginSuccess();
+  } else {
+    showLoginError((result && result.message) || 'Invalid PIN. Access denied.');
+    // Shake animation
+    const card = document.querySelector('.login-card');
+    card.style.animation = 'none';
+    card.offsetHeight;
+    card.style.animation = 'shake 0.35s ease';
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.opacity = msg ? '1' : '0';
+}
+
+async function loginSuccess() {
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-main').classList.add('active');
+  document.getElementById('scanner-id-label').innerHTML =
+    '<span class="conn-dot ' + (webAppOnline ? 'online' : 'offline') + '" id="conn-dot"></span>' +
+    '<span id="conn-label">' + scannerName + '</span>';
+
+  setLoading('Loading participants…');
+  await loadParticipants();
+  hideLoading();
+  updateStats();
+}
+
+function logout() {
+  if (!confirm('Log out?')) return;
+  stopScanner();
+  scannerName = '';
+  scannerPin  = '';
+  participants = [];
+  log = [];
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('screen-main').classList.remove('active');
+  document.getElementById('screen-login').classList.add('active');
+  showPlaceholder();
+  renderLog();
+}
+
+// ── DAY TOGGLE ────────────────────────────────────────────────
+function setDay(d) {
+  currentDay = d;
+  document.getElementById('btn-d1').classList.toggle('active', d === 1);
+  document.getElementById('btn-d2').classList.toggle('active', d === 2);
+  document.getElementById('day-log-label').textContent = 'Day ' + d;
+  updateStats();
+  showPlaceholder();
+}
+
+// ── LOAD PARTICIPANTS ─────────────────────────────────────────
+async function loadParticipants() {
+  if (OFFLINE_MODE) {
+    participants = JSON.parse(JSON.stringify(DEMO_PARTICIPANTS));
+    return;
+  }
+  const res = await apiPost({ action: 'get_participants' });
+  if (res && res.success && res.participants) {
+    participants = res.participants;
+  } else {
+    participants = JSON.parse(JSON.stringify(DEMO_PARTICIPANTS));
+    console.warn('Could not load from sheet, using demo data.');
+  }
+}
+
+// ── SCAN QR ───────────────────────────────────────────────────
+function onQRScanned(raw) {
+  if (cooldown) return;
+  cooldown = true;
+  setTimeout(() => cooldown = false, 1800);
+
+  const parts = raw.split('|');
+  const id    = parts.length >= 2 ? parts[1].trim() : raw.trim();
+  processCheckIn(id);
+}
+
+function doManual() {
+  const val = document.getElementById('manual-input').value.trim();
+  if (!val) return;
+  document.getElementById('manual-input').value = '';
+  processCheckIn(val);
+}
+
+// ── CHECK-IN LOGIC ────────────────────────────────────────────
+async function processCheckIn(query) {
+  setLoading('Checking in…');
+
+  // Find participant locally first
+  const q = query.toUpperCase();
+  let p = participants.find(x =>
+    x.id.toUpperCase() === q ||
+    x.name.toUpperCase().includes(q) ||
+    x.id.toUpperCase().includes(q)
+  );
+
+  if (!p) {
+    hideLoading();
+    showResult('err', '✕', 'Not Found', query, 'This QR code is not in the system');
+    addLog('err', query, 'Not found');
+    return;
+  }
+
+  const dayKey = 'day' + currentDay;
+
+  // Already checked in (local check)
+  if (p[dayKey] === 'Present') {
+    hideLoading();
+    showResult('warn', '!', p.name, p.id, 'Already checked in for Day ' + currentDay);
+    addLog('warn', p.name, 'Already checked in');
+    return;
+  }
+
+  // Write to sheet (or local only if offline)
+  let writeOk = true;
+
+  if (!OFFLINE_MODE && webAppOnline) {
+    const res = await apiPost({
+      action:        'checkin',
+      participantId: p.id,
+      day:           currentDay,
+      scannerName:   scannerName,
+    });
+
+    if (!res || !res.success) {
+      if (res && res.already) {
+        p[dayKey] = 'Present';
+        hideLoading();
+        showResult('warn', '!', p.name, p.id, 'Already checked in for Day ' + currentDay);
+        addLog('warn', p.name, 'Already checked in');
+        return;
+      }
+      writeOk = false;
+      console.warn('Web App write failed, marking locally only.', res);
+    }
+  }
+
+  // Update local state
+  p[dayKey] = 'Present';
+  updateStats();
+  hideLoading();
+
+  const suffix = writeOk ? '' : ' (offline — sheet not updated)';
+  showResult('ok', '✓', p.name, p.id, 'Checked in — Day ' + currentDay + suffix);
+  addLog('ok', p.name, 'Day ' + currentDay + (writeOk ? '' : ' (offline)'));
+}
+
+// ── SCANNER ───────────────────────────────────────────────────
+function toggleScanner() {
+  if (scanning) stopScanner(); else startScanner();
+}
+
+function startScanner() {
+  document.getElementById('idle-msg').style.display = 'none';
+  if (!html5QrCode) html5QrCode = new Html5Qrcode('reader');
+
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 12, qrbox: { width: 220, height: 220 } },
+    (decoded) => { onQRScanned(decoded); },
+    () => {}
+  ).then(() => {
+    scanning = true;
+    const btn = document.getElementById('scan-btn');
+    btn.textContent  = 'Stop Camera';
+    btn.className    = 'scan-btn stop';
+  }).catch(err => {
+    document.getElementById('idle-msg').style.display = 'block';
+    alert('Camera access was denied.\n\nPlease allow camera access in your browser settings and try again.\n\nYou can still use Manual Check-In below.');
+    console.error(err);
+  });
+}
+
+function stopScanner() {
+  if (html5QrCode && scanning) {
+    html5QrCode.stop().then(() => {
+      scanning = false;
+      const btn = document.getElementById('scan-btn');
+      btn.textContent = 'Start Camera';
+      btn.className   = 'scan-btn start';
+      document.getElementById('idle-msg').style.display = 'block';
+    });
+  }
+}
+
+// ── DISPLAY HELPERS ───────────────────────────────────────────
+function showResult(type, icon, name, id, msg) {
+  const card = document.getElementById('result-card');
+  card.className = 'result-card ' + type;
+  card.innerHTML = `
+    <div class="result-icon ${type}">${icon}</div>
+    <div class="result-text">
+      <div class="result-name">${esc(name)}</div>
+      <div class="result-msg ${type}">${esc(id)} — ${esc(msg)}</div>
+    </div>`;
+}
+
+function showPlaceholder() {
+  const card = document.getElementById('result-card');
+  card.className = 'result-card';
+  card.innerHTML = '<div class="result-placeholder">Point camera at QR code or search below</div>';
+}
+
+function addLog(type, name, meta) {
+  const time = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+  log.unshift({ type, name, meta, time });
+  if (log.length > 50) log.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-wrap');
+  if (!log.length) {
+    el.innerHTML = '<div class="log-empty">No check-ins yet</div>';
+    return;
+  }
+  el.innerHTML = log.map(l => `
+    <div class="log-item">
+      <div class="log-dot ${l.type}"></div>
+      <div class="log-name">${esc(l.name)}</div>
+      <div class="log-meta">${esc(l.meta)} · ${l.time}</div>
+    </div>`).join('');
+}
+
+function updateStats() {
+  const paid    = participants.length;
+  const dayKey  = 'day' + currentDay;
+  const checked = participants.filter(p => p[dayKey] === 'Present').length;
+  document.getElementById('stat-total').textContent = paid || '—';
+  document.getElementById('stat-in').textContent    = checked;
+  document.getElementById('stat-pct').textContent   = paid ? Math.round(checked / paid * 100) + '%' : '—';
+}
+
+// ── API HELPERS ───────────────────────────────────────────────
+async function apiPost(data) {
+  try {
+    // We drop strict JSON headers to bypass harsh preflight triggers if the browser objects
+    const res = await fetch(WEBAPP_URL, {
+      method:  'POST',
+      body:    JSON.stringify(data),
+    });
+    const parsed = await res.json();
+    webAppOnline = true; // If it responds, we are definitely online
+    updateConnStatus();
+    return parsed;
+  } catch (err) {
+    console.error('API error:', err);
+    // Only flag offline if it is a definitive structural failure
+    return null;
+  }
+}
+
+async function pingWebApp() {
+  try {
+    const res = await fetch(WEBAPP_URL + '?ping=1');
+    return res.ok;
+  } catch { return false; }
+}
+
+function updateConnStatus() {
+  const dot   = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  if (!dot || !label) return;
+  if (OFFLINE_MODE) {
+    dot.className   = 'conn-dot offline';
+    label.textContent = scannerName + ' (offline mode)';
+  } else if (webAppOnline) {
+    dot.className   = 'conn-dot online';
+    label.textContent = scannerName + ' · Live';
+  } else {
+    dot.className   = 'conn-dot offline';
+    label.textContent = scannerName + ' · Offline';
+  }
+}
+
+// ── LOADING ───────────────────────────────────────────────────
+function setLoading(msg) {
+  document.getElementById('loading-text').textContent = msg || 'Please wait…';
+  document.getElementById('loading').style.display = 'flex';
+}
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
