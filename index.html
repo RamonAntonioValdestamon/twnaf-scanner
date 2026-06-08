@@ -819,28 +819,37 @@ function doManual() {
   processCheckIn(val);
 }
 
-// ── CHECK-IN LOGIC ────────────────────────────────────────────
+// ── REPLACED AND REINFORCED LOOKUP LOGIC ──
 async function processCheckIn(query) {
   setLoading('Checking in…');
 
-  // Find participant locally first
-  const q = query.toUpperCase();
-  let p = participants.find(x =>
-    x.id.toUpperCase() === q ||
-    x.name.toUpperCase().includes(q) ||
-    x.id.toUpperCase().includes(q)
-  );
+  // 1. Clean the input query (Handle full raw strings or just the extracted ID)
+  let cleanQuery = query.trim();
+  if (cleanQuery.includes('|')) {
+    const parts = cleanQuery.split('|');
+    cleanQuery = parts.length >= 2 ? parts[1].trim() : cleanQuery;
+  }
+  
+  const q = cleanQuery.toUpperCase();
+  Logger = console; // for debugging in browser console
+
+  // 2. Find participant locally with high-tolerance matching
+  let p = participants.find(x => {
+    const sheetId = (x.id || '').toString().toUpperCase().trim();
+    const sheetName = (x.name || '').toString().toUpperCase().trim();
+    return sheetId === q || sheetId.includes(q) || sheetName.includes(q);
+  });
 
   if (!p) {
     hideLoading();
-    showResult('err', '✕', 'Not Found', query, 'This QR code is not in the system');
-    addLog('err', query, 'Not found');
+    showResult('err', '✕', 'Not Found', cleanQuery, 'This QR code is not in the system');
+    addLog('err', cleanQuery, 'Not found');
     return;
   }
 
   const dayKey = 'day' + currentDay;
 
-  // Already checked in (local check)
+  // 3. Already checked in (local check)
   if (p[dayKey] === 'Present') {
     hideLoading();
     showResult('warn', '!', p.name, p.id, 'Already checked in for Day ' + currentDay);
@@ -848,7 +857,7 @@ async function processCheckIn(query) {
     return;
   }
 
-  // Write to sheet (or local only if offline)
+  // 4. Write directly back to the Google Sheet via Web App URL
   let writeOk = true;
 
   if (!OFFLINE_MODE && webAppOnline) {
@@ -872,7 +881,7 @@ async function processCheckIn(query) {
     }
   }
 
-  // Update local state
+  // 5. Update local screen state on success
   p[dayKey] = 'Present';
   updateStats();
   hideLoading();
